@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Response, status
+from fastapi.testclient import TestClient
 
 
 from app.database import products_db
@@ -9,14 +10,17 @@ app = FastAPI(
     title="Product API",
     description="A simple API for managing products",
     version="1.0.0"
-) 
+) # levanta servidor con uvicorn app.main:app --reload
+
+client = TestClient(app)
 
 @app.get("/")
 def root():
     return {"message": "Hello, World! api Functional!"}
 
 
-@app.get("/products/", response_model=list[Product])
+
+@app.get("/products", response_model=list[Product])
 def get_product(category: str | None = None, available: bool | None = None, search: str | None = None):
     result = products_db
     if category is not None:
@@ -80,6 +84,15 @@ def update_product(product_id: int, product_update: ProductUpdate):
     
     return product
 
+@app.put("/products/{product_id}", response_model=Product)
+def replace_product(product_id: int, product_replace: ProductCreate):
+    product = next((product for product in products_db if product["id"] == product_id), None)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product.update(product_replace.model_dump())
+    return product
+
 
 
 @app.delete("/products/{product_id}", response_model=Product)
@@ -95,6 +108,14 @@ def delete_product(product_id: int):
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+
+def test_get_products():
+    response = client.get("/products")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert isinstance(data, list) # comprobar que la respuesta es una lista
 
 
 
